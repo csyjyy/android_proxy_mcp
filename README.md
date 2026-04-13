@@ -2,26 +2,38 @@
 
 基于 MCP (Model Context Protocol) 的 Android 抓包服务，让 AI 助手能够帮你抓取和分析 HTTP/HTTPS 流量。
 
+支持完整的 **AI 驱动自动化移动安全测试**，集成 Frida  instrumentation 和 UI 自动化。
+
 ## 功能特点
 
 - **抓包**: 捕获 HTTP/HTTPS 流量，支持按域名、状态码、资源类型筛选
 - **智能搜索**: 搜索请求/响应内容，支持大响应分片读取
 - **AI 驱动**: 通过自然语言让 Claude 帮你分析网络请求
+- **Frida RPC**: 直接调用 App 原生加密/解密方法
+- **UI 自动化**: dump 当前 UI，点击、输入通过 ADB
+- **Autonomous Testing**: 支持 Workers.io 风格的自动化探索测试
 
 ## 架构
 
 ```
-┌─────────────────┐     SQLite      ┌─────────────────┐
-│  代理服务        │ ─────────────→  │  MCP 服务        │
-│  (终端手动启动)   │   流量数据共享   │  (Claude 调用)   │
-│  mitmdump       │                 │  查询/搜索/分析   │
-└─────────────────┘                 └─────────────────┘
-        ↑
-        │ HTTP/HTTPS
-        │
-   ┌─────────┐
-   │  手机    │
-   └─────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Root Android (📱)                                          │
+│  - Frida server 运行                                         │
+│  - 目标 App                                                  │
+└───────────┬───────────────────────────────────────────────────┘
+            │
+┌───────────▼───────────┐      SQLite       ┌───────────────────┐
+│   mitmdump 代理服务   │  ─── 流量存储 ───▶ │   MCP 服务 (Claude)│
+│   (终端手动启动)       │                    │  - 流量查询搜索    │
+└───────────┬───────────┘                    │  - Frida RPC 调用 │
+            │ HTTP/HTTPS                     │  - UI 自动化操作  │
+            │                               └───────────────────┘
+┌───────────▼───────────┐
+│    ADB + Frida        │
+│  - dump UI            │
+│  - 点击/输入模拟      │
+│  - RPC 加解密         │
+└───────────────────────┘
 ```
 
 ## 快速开始
@@ -189,6 +201,7 @@ uv run android-proxy-start
 
 ## MCP 工具列表
 
+### 基础流量工具
 | 工具 | 说明 |
 |-----|------|
 | `proxy_status` | 获取代理状态 |
@@ -198,6 +211,52 @@ uv run android-proxy-start
 | `traffic_read_body` | 分片读取大响应体 |
 | `traffic_clear` | 清空流量记录 |
 | `get_cert_info` | 获取证书安装指南 |
+
+### Frida 工具
+| 工具 | 说明 |
+|-----|------|
+| `frida_status` | 检查 Frida 连接状态 |
+| `frida_decrypt` | RPC 调用 App 原生解密方法 |
+| `frida_encrypt` | RPC 调用 App 原生加密方法 |
+| `frida_get_session_keys` | 获取捕获的会话密钥 |
+| `frida_bypass` | 强制应用梆梆检测绕过 |
+
+### UI 自动化工具
+| 工具 | 说明 |
+|-----|------|
+| `ui_dump` | dump 当前 UI，列出所有可交互元素 |
+| `ui_tap` | 点击指定 ID 的元素 |
+| `ui_tap_by_label` | 点击第一个标签包含文字的元素 |
+| `ui_input_text` | 输入文字到指定输入框 |
+| `ui_input_by_label` | 找到标签匹配的输入框并输入 |
+
+### 自治自动化工具
+| 工具 | 说明 |
+|-----|------|
+| `autonomous_decrypt_all_captured_traffic` | 批量解密 SQLite 中所有捕获流量的密文 |
+| `run_autonomous_sequence` | 运行自动化操作序列（如自动登录）|
+
+---
+
+## 云闪付 (UnionPay) 自动化测试
+
+本项目内置了针对云闪付 App 的梆梆加固绕过和自动化测试支持：
+
+- **预配置绕过**: 云闪付 10.2.9+ 五个梆梆检测点偏移已内置
+- **Frida RPC**: 直接调用 `com.unionpay.utils.IJniInterface.c()` 加密和 `d()` 解密
+- **完全自动化**: Claude 可以自动探索 UI → 操作 → 抓包 → 解密
+
+**工作流：**
+```
+1. 手机启动 frida-server
+2. 启动代理: uv run android-proxy-start
+3. 在 Claude Desktop 中:
+   - frida_status() 检查连接
+   - ui_dump() 获取当前 UI
+   - ui_tap_by_label(label_contains="我的") 点击
+   - autonomous_decrypt_all_captured_traffic() 解密所有流量
+   - 重复...
+```
 
 ---
 
@@ -243,13 +302,23 @@ uv run android-proxy-start
 android-proxy-mcp/
 ├── README.md
 ├── pyproject.toml
+├── .gitignore
+├── frida-scripts/            # Frida 脚本
+│   └── bypass-capture.js    # 梆梆绕过 + RPC 导出
 ├── src/
 │   └── android_proxy_mcp/
 │       ├── cli/              # 命令行工具
 │       │   └── start.py      # 代理启动脚本
 │       ├── core/             # 核心模块
 │       │   └── sqlite_store.py  # SQLite 流量存储
+│       ├── frida/            # Frida 模块
+│       │   └── rpc_client.py # Frida RPC 客户端
+│       ├── ui/               # UI 自动化
+│       │   └── parser.py     # UI Automator 解析
 │       ├── tools/            # MCP 工具
+│       │   ├── frida_tools.py
+│       │   ├── ui_tools.py
+│       │   ├── autonomous_tools.py
 │       └── server.py         # MCP 服务入口
 ├── tests/
 ├── docs/                     # 文档

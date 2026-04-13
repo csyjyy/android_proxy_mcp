@@ -97,7 +97,7 @@ class ADBClient:
                 stdout.decode("utf-8", errors="replace").strip(),
                 stderr.decode("utf-8", errors="replace").strip(),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if proc is not None:
                 proc.kill()
             raise ADBError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
@@ -330,7 +330,9 @@ class ADBClient:
             return True
 
         # 方法3: 检查常见 root 管理器
-        _, output = await self.shell(serial, "pm list packages | grep -E 'supersu|magisk'")
+        _, output = await self.shell(
+            serial, "pm list packages | grep -E 'supersu|magisk'"
+        )
         if output and ("supersu" in output.lower() or "magisk" in output.lower()):
             return True
 

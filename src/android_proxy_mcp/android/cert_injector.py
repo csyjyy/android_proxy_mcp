@@ -114,7 +114,10 @@ class CertHelper:
             try:
                 cert_info = self.get_cert_info()
             except FileNotFoundError:
-                return "mitmproxy CA certificate not found. Start proxy first to generate it."
+                return (
+                    "mitmproxy CA certificate not found. "
+                    "Start proxy first to generate it."
+                )
 
         return f"""## mitmproxy CA Certificate Installation
 
@@ -128,7 +131,8 @@ Certificate hash: {cert_info.hash}
 
 ### Method 2: Manual Install (Android)
 1. Certificate pushed to: /sdcard/Download/{cert_info.filename}
-2. Go to: Settings → Security → Encryption & credentials → Install certificate → CA certificate
+2. Go to: Settings → Security → Encryption & credentials →
+   Install certificate → CA certificate
 3. Select the certificate file
 
 ### Method 3: System Certificate (Android, requires root)

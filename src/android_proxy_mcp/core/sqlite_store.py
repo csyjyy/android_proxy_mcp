@@ -140,7 +140,7 @@ class SQLiteTrafficStore:
         filter_type: str | None = None,
         filter_status: str | None = None,
         filter_url: str | None = None,
-    ) -> list[TrafficRecord]:
+    ) -> tuple[list[TrafficRecord], int]:
         """
         查询流量记录
 
@@ -153,7 +153,7 @@ class SQLiteTrafficStore:
             filter_url: 按 URL 正则匹配
 
         Returns:
-            匹配的流量记录列表，按时间倒序
+            (匹配的流量记录列表, 匹配的总数)，按时间倒序
         """
         # 限制最大返回数量为 10
         limit = min(limit, 10)
@@ -183,17 +183,26 @@ class SQLiteTrafficStore:
             params.append(f"%{filter_url}%")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        params.extend([limit, offset])
 
         with self._get_conn() as conn:
+            # 获取总数
+            count_params = params.copy()
+            total = conn.execute(f"""
+                SELECT COUNT(*) FROM traffic
+                WHERE {where_clause}
+            """, count_params).fetchone()[0]
+
+            # 获取记录
+            query_params = params.copy()
+            query_params.extend([limit, offset])
             rows = conn.execute(f"""
                 SELECT * FROM traffic
                 WHERE {where_clause}
                 ORDER BY timestamp DESC
                 LIMIT ? OFFSET ?
-            """, params).fetchall()
+            """, query_params).fetchall()
 
-            return [self._row_to_record(row) for row in rows]
+            return ([self._row_to_record(row) for row in rows], total)
 
     def _build_status_condition(self, pattern: str) -> tuple[str, list] | None:
         """构建状态码查询条件"""
@@ -295,7 +304,13 @@ class SQLiteTrafficStore:
             匹配结果列表，每个元素包含 request_id, url, matched_in, snippet 等
         """
         if search_in is None or "all" in search_in:
-            search_in = ["url", "request_headers", "request_body", "response_headers", "response_body"]
+            search_in = [
+                "url",
+                "request_headers",
+                "request_body",
+                "response_headers",
+                "response_body",
+            ]
 
         # 构建基础查询条件
         base_conditions = []
@@ -393,7 +408,9 @@ class SQLiteTrafficStore:
                         field_size = len(matched_content)
 
                     # 提取片段
-                    snippet = self._extract_snippet(matched_content, keyword, context_chars)
+                    snippet = self._extract_snippet(
+                        matched_content, keyword, context_chars
+                    )
 
                     # 计算匹配位置
                     match_position = matched_content.lower().find(keyword.lower())
@@ -429,7 +446,9 @@ class SQLiteTrafficStore:
         pos = lower_content.find(lower_keyword)
 
         if pos == -1:
-            return content[:context_chars * 2] + "..." if len(content) > context_chars * 2 else content
+            if len(content) > context_chars * 2:
+                return content[:context_chars * 2] + "..."
+            return content
 
         # 计算片段范围
         start = max(0, pos - context_chars)
@@ -478,7 +497,7 @@ class SQLiteTrafficStore:
                 return None
 
             body = row[field]
-            total_size = row["total_size"] or 0
+            row["total_size"] or 0
 
             if body is None:
                 return {

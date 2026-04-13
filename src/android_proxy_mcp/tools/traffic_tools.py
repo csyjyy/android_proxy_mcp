@@ -51,7 +51,7 @@ def traffic_list(
     # 限制最大返回数量为 10
     limit = min(limit, 10)
 
-    records = store.query(
+    records, total = store.query(
         limit=limit,
         offset=offset,
         filter_domain=filter_domain,
@@ -68,7 +68,8 @@ def traffic_list(
         "returned": len(records),
         "offset": offset,
         "store_size": store_size,
-        "has_more": offset + len(records) < store_size,
+        "total": total,
+        "has_more": offset + len(records) < total,
     }
 
 
@@ -112,7 +113,10 @@ def traffic_get_detail(request_id: str) -> dict[str, Any]:
             "response_size": record.size,
             "time_ms": record.time_ms,
             "request_headers": record.request_headers,
-            "request_body_size": record.request_body_size or (len(record.request_body) if record.request_body else 0),
+            "request_body_size": (
+                record.request_body_size
+                or (len(record.request_body) if record.request_body else 0)
+            ),
             "response_headers": record.response_headers,
             "response_body_size": record.size,
             "timing": record.timing,

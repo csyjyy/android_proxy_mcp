@@ -100,7 +100,9 @@ def main():
 
     # ========== 欢迎界面 ==========
     logger.opt(colors=True).info("<magenta>╔════════════════════════════════════════════════════════════╗</magenta>")
-    logger.opt(colors=True).info("<magenta>║            🚀 Android Proxy MCP 启动向导                   ║</magenta>")
+    logger.opt(colors=True).info(
+        "<magenta>║ 🚀 Android Proxy MCP 启动向导 ║</magenta>"
+    )
     logger.opt(colors=True).info("<magenta>╚════════════════════════════════════════════════════════════╝</magenta>")
 
     # ========== 环境检测 ==========
@@ -119,7 +121,7 @@ def main():
                 if kill_port_process(args.port):
                     logger.opt(colors=True).success(f"    ✓ 端口 {args.port} 已释放")
                 else:
-                    logger.error(f"    ✗ 无法释放端口")
+                    logger.error("    ✗ 无法释放端口")
                     sys.exit(1)
             else:
                 sys.exit(1)
@@ -135,10 +137,10 @@ def main():
 
     logger.info("    手机 Wi-Fi 代理设置:")
     logger.info("")
-    logger.info(f"       ┌─────────────────────────────────┐")
+    logger.info("       ┌─────────────────────────────────┐")
     logger.opt(colors=True).info(f"       │  服务器: <cyan>{local_ip:^20}</cyan> │")
     logger.opt(colors=True).info(f"       │  端  口: <cyan>{args.port:^20}</cyan> │")
-    logger.info(f"       └─────────────────────────────────┘")
+    logger.info("       └─────────────────────────────────┘")
     logger.info("")
     logger.opt(colors=True).info("    证书安装: 手机浏览器访问 <green>http://mitm.it</green>")
     logger.info("")
@@ -232,7 +234,11 @@ def response(flow):
             flow.response.status_code,
             resource_type,
             len(flow.response.content) if flow.response.content else 0,
-            (flow.response.timestamp_end - flow.request.timestamp_start) * 1000 if flow.response.timestamp_end else 0,
+            (
+                (flow.response.timestamp_end - flow.request.timestamp_start) * 1000
+                if flow.response.timestamp_end
+                else 0
+            ),
             json.dumps(dict(flow.request.headers)),
             flow.request.content,
             json.dumps(dict(flow.response.headers)),

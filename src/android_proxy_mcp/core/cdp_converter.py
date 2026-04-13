@@ -138,7 +138,9 @@ class CDPConverter:
 
         # 下载阶段
         if response and response.timestamp_end and response.timestamp_start:
-            download_duration = (response.timestamp_end - response.timestamp_start) * 1000
+            download_duration = (
+                response.timestamp_end - response.timestamp_start
+            ) * 1000
             timing["responseTime"] = download_duration
 
         # 总耗时
